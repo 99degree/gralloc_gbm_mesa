@@ -390,7 +390,7 @@ struct gbm_bo *gralloc_get_gbm_bo_from_handle(buffer_handle_t handle) {
 }
 
 void gralloc_gbm_destroy_user_data(struct gbm_bo *bo, void *data) {
-    struct bo_data_t *bo_data = (struct bo_data_t *)data;
+    bo_data_t *bo_data = (bo_data_t *)data;
     delete bo_data;
 
     (void)bo;
@@ -400,7 +400,7 @@ static int gralloc_gbm_map(buffer_handle_t handle, int enable_write, void **addr
     int err = 0;
     int flags = GBM_BO_TRANSFER_READ;
     struct gbm_bo *bo = gralloc_get_gbm_bo_from_handle(handle);
-    struct bo_data_t *bo_data = (struct bo_data_t *)gbm_bo_get_user_data(bo);
+    bo_data_t *bo_data = (bo_data_t *)gbm_bo_get_user_data(bo);
     uint32_t stride;
 
     if (bo_data->map_data)
@@ -421,7 +421,7 @@ static int gralloc_gbm_map(buffer_handle_t handle, int enable_write, void **addr
 }
 
 static void gralloc_gbm_unmap(struct gbm_bo *bo) {
-    struct bo_data_t *bo_data = (struct bo_data_t *)gbm_bo_get_user_data(bo);
+    bo_data_t *bo_data = (bo_data_t *)gbm_bo_get_user_data(bo);
 
     _LOGV("unmapped bo %p", bo);
     gbm_bo_unmap(bo, bo_data->map_data);
@@ -434,7 +434,7 @@ int gralloc_gbm_bo_lock(buffer_handle_t handle,
 {
     struct gralloc_handle_t *gbm_handle = gralloc_handle(handle);
     struct gbm_bo *bo = gralloc_get_gbm_bo_from_handle(handle);
-    struct bo_data_t *bo_data;
+    bo_data_t *bo_data;
 
     if (!bo)
         return -EINVAL;
@@ -451,9 +451,9 @@ int gralloc_gbm_bo_lock(buffer_handle_t handle,
         }
     }
 
-    bo_data = (struct bo_data_t *)gbm_bo_get_user_data(bo);
+    bo_data = (bo_data_t *)gbm_bo_get_user_data(bo);
     if (!bo_data) {
-        bo_data = new struct bo_data_t();
+        bo_data = new struct bo_data();
         gbm_bo_set_user_data(bo, bo_data, gralloc_gbm_destroy_user_data);
     }
 
@@ -485,11 +485,11 @@ int gralloc_gbm_bo_lock(buffer_handle_t handle,
 
 int gralloc_gbm_bo_unlock(buffer_handle_t handle) {
     struct gbm_bo *bo = gralloc_get_gbm_bo_from_handle(handle);
-    struct bo_data_t *bo_data;
+    bo_data_t *bo_data;
     if (!bo)
         return -EINVAL;
 
-    bo_data = (struct bo_data_t *)gbm_bo_get_user_data(bo);
+    bo_data = (bo_data_t *)gbm_bo_get_user_data(bo);
 
     int mapped = bo_data->locked_for &
         (GRALLOC_USAGE_SW_WRITE_MASK | GRALLOC_USAGE_SW_READ_MASK);

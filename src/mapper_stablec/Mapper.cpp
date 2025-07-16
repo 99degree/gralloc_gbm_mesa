@@ -28,6 +28,11 @@
 
 #include "../gralloc_gbm_mesa.h"
 
+using aidl::android::hardware::graphics::common::BlendMode;
+using aidl::android::hardware::graphics::common::Dataspace;
+using aidl::android::hardware::graphics::common::Cta861_3;
+using aidl::android::hardware::graphics::common::Smpte2086;
+
 using namespace aidl::android::hardware::graphics::common;
 using namespace android::hardware::graphics::mapper;
 using aidl::android::hardware::graphics::allocator::BufferDescriptorInfo;
@@ -57,6 +62,28 @@ static bool isStandardMetadata(AIMapper_MetadataType metadataType) {
 }
 
 int getPlaneLayouts(uint32_t gbmFormat, std::vector<PlaneLayout>* outPlaneLayouts);
+
+// We store the all of metadata with a K,V map [int, struct gralloc_metadata] named gralloc_metadata_prime_fd_map.
+static std::unordered_map<int, struct gralloc_metadata *> gralloc_metadata_prime_fd_map;
+
+// Use the existing metadata or create it if it doesn't exist.
+static int createMetadata(gralloc_handle_t *handle, struct gralloc_metadata **outMetadata) {
+    auto it = gralloc_metadata_prime_fd_map.find(handle->prime_fd);
+    gralloc_metadata_t *md = (it != gralloc_metadata_prime_fd_map.end()) ? it->second : nullptr;
+    if (!md) {
+        _LOGD("Could not found metadata for handle (fd=%d), create new one.", handle->prime_fd);
+        md = new gralloc_metadata {
+            .prime_fd = handle->prime_fd,
+            .blend_mode = BlendMode::NONE,
+            .dataspace = Dataspace::UNKNOWN,
+            .cta861_3 = {},
+            .smpte2086 = {},
+        };
+        gralloc_metadata_prime_fd_map[handle->prime_fd] = md;
+    }
+    *outMetadata = md;
+    return 0;
+}
 
 class GbmMesaMapperV5 final : public vendor::mapper::IMapperV5Impl {
   private:
@@ -273,8 +300,13 @@ int32_t GbmMesaMapperV5::getStandardMetadata(buffer_handle_t _Nonnull bufferHand
 template <typename F, StandardMetadataType metadataType>
 int32_t GbmMesaMapperV5::getStandardMetadata(buffer_handle_t handle, F&& provide,
                                                  StandardMetadata<metadataType>) {
-    gralloc_handle_t* hnd = gralloc_handle(handle);
+    gralloc_handle_t *hnd = gralloc_handle(handle);
+    gralloc_metadata_t *metadata = nullptr;
+
     if (!hnd) return AIMAPPER_ERROR_BAD_BUFFER;
+    
+    createMetadata(hnd, &metadata);
+    if (!metadata) return AIMAPPER_ERROR_NO_RESOURCES;
 
     if constexpr (metadataType == StandardMetadataType::BUFFER_ID) {
         return provide(reinterpret_cast<uint64_t>(handle));
@@ -358,24 +390,16 @@ int32_t GbmMesaMapperV5::getStandardMetadata(buffer_handle_t handle, F&& provide
         return provide(crops);
     }
     if constexpr (metadataType == StandardMetadataType::DATASPACE) {
-        std::optional<Dataspace> dataspace;
-        // TODO:
-        return AIMAPPER_ERROR_NO_RESOURCES;
+        return provide(metadata->dataspace);
     }
     if constexpr (metadataType == StandardMetadataType::BLEND_MODE) {
-        std::optional<BlendMode> blend;
-        // TODO:
-        return AIMAPPER_ERROR_NO_RESOURCES;
+        return provide(metadata->blend_mode);
     }
     if constexpr (metadataType == StandardMetadataType::SMPTE2086) {
-        std::optional<Smpte2086> smpte;
-        // TODO:
-        return AIMAPPER_ERROR_NO_RESOURCES;
+        return provide(metadata->smpte2086);
     }
     if constexpr (metadataType == StandardMetadataType::CTA861_3) {
-        std::optional<Cta861_3> cta;
-        // TODO:
-        return cta ? provide(*cta) : 0;
+        return provide(metadata->cta861_3);
     }
     if constexpr (metadataType == StandardMetadataType::STRIDE) {
         // This stride should be the same value of AllocationResult of Allocator.
@@ -398,73 +422,70 @@ AIMapper_Error GbmMesaMapperV5::setMetadata(const native_handle_t* buffer,
     return setStandardMetadata(bufferHandle, metadataType.value, metadata, metadataSize);
 }
 
-// Add the missing setStandardMetadata implementation
 AIMapper_Error GbmMesaMapperV5::setStandardMetadata(buffer_handle_t _Nonnull buffer,
                                                     int64_t standardMetadataType,
                                                     const void* _Nonnull metadata,
                                                     size_t metadataSize) {
     REQUIRE_DRIVER()
     VALIDATE_BUFFER_HANDLE(buffer)
-    
+
     gralloc_handle_t* handle = gralloc_handle(buffer);
     if (!handle) {
         _LOGE("Failed to get gralloc handle");
         return AIMAPPER_ERROR_BAD_BUFFER;
     }
-    
-    // Convert the int64_t to StandardMetadataType enum and get readable name
+
+    gralloc_metadata_t* grallocMetadata = nullptr;
+    if (createMetadata(handle, &grallocMetadata) != 0 || !grallocMetadata) {
+        _LOGE("Failed to create or retrieve metadata for buffer (fd=%d)", handle->prime_fd);
+        return AIMAPPER_ERROR_NO_RESOURCES;
+    }
+
     StandardMetadataType metadataTypeEnum = static_cast<StandardMetadataType>(standardMetadataType);
     std::string metadataTypeName = toString(metadataTypeEnum);
-    
-    _LOGI("Trying to set the standard metadata type: %s (%ld)", metadataTypeName.c_str(), standardMetadataType);
+    _LOGV("Setting metadata type: %s (%ld), size: %zu", metadataTypeName.c_str(), standardMetadataType, metadataSize);
 
-    // Handle metadata based on type
-    switch (standardMetadataType) {
-        case static_cast<int64_t>(StandardMetadataType::BUFFER_ID):
-        case static_cast<int64_t>(StandardMetadataType::NAME):
-        case static_cast<int64_t>(StandardMetadataType::WIDTH):
-        case static_cast<int64_t>(StandardMetadataType::HEIGHT):
-        case static_cast<int64_t>(StandardMetadataType::LAYER_COUNT):
-        case static_cast<int64_t>(StandardMetadataType::PIXEL_FORMAT_REQUESTED):
-        case static_cast<int64_t>(StandardMetadataType::USAGE):
-            // Read-only metadata types
+    switch (metadataTypeEnum) {
+        case StandardMetadataType::DATASPACE: {
+            if (metadataSize != sizeof(Dataspace)) return AIMAPPER_ERROR_BAD_VALUE;
+            const auto* value = static_cast<const Dataspace*>(metadata);
+            grallocMetadata->dataspace = *value;
+            _LOGD("Set dataspace to %d for handle (fd = %d)", static_cast<int>(*value), handle->prime_fd);
+            return AIMAPPER_ERROR_NONE;
+        }
+        case StandardMetadataType::BLEND_MODE: {
+            if (metadataSize != sizeof(BlendMode)) return AIMAPPER_ERROR_BAD_VALUE;
+            const auto* value = static_cast<const BlendMode*>(metadata);
+            grallocMetadata->blend_mode = *value;
+            _LOGD("Set blend_mode to %d for handle (fd = %d)", static_cast<int>(*value), handle->prime_fd);
+            return AIMAPPER_ERROR_NONE;
+        }
+        case StandardMetadataType::SMPTE2086: {
+            if (metadataSize != sizeof(Smpte2086)) return AIMAPPER_ERROR_BAD_VALUE;
+            const auto* value = static_cast<const Smpte2086*>(metadata);
+            grallocMetadata->smpte2086 = *value;
+            return AIMAPPER_ERROR_NONE;
+        }
+        case StandardMetadataType::CTA861_3: {
+            if (metadataSize != sizeof(Cta861_3)) return AIMAPPER_ERROR_BAD_VALUE;
+            const auto* value = static_cast<const Cta861_3*>(metadata);
+            grallocMetadata->cta861_3 = *value;
+            return AIMAPPER_ERROR_NONE;
+        }
+
+        // Read-Only types
+        case StandardMetadataType::BUFFER_ID:
+        case StandardMetadataType::NAME:
+        case StandardMetadataType::WIDTH:
+        case StandardMetadataType::HEIGHT:
+        case StandardMetadataType::LAYER_COUNT:
+        case StandardMetadataType::PIXEL_FORMAT_REQUESTED:
+        case StandardMetadataType::USAGE:
             _LOGW("Metadata type %s is read-only", metadataTypeName.c_str());
             return AIMAPPER_ERROR_BAD_VALUE;
 
-        case static_cast<int64_t>(StandardMetadataType::BLEND_MODE): {
-            // TODO: Implement blend mode setting
-            // auto& value = *static_cast<const StandardMetadata<StandardMetadataType::BLEND_MODE>::value_type*>(metadata);
-            // handle->blend_mode = value;
-            _LOGW("Metadata type %s not yet implemented", metadataTypeName.c_str());
-            return AIMAPPER_ERROR_UNSUPPORTED;
-        }
-        
-        case static_cast<int64_t>(StandardMetadataType::CTA861_3): {
-            // TODO: Implement CTA861_3 setting
-            // auto& value = *static_cast<const StandardMetadata<StandardMetadataType::CTA861_3>::value_type*>(metadata);
-            // handle->cta861_3 = value;
-            _LOGW("Metadata type %s not yet implemented", metadataTypeName.c_str());
-            return AIMAPPER_ERROR_UNSUPPORTED;
-        }
-        
-        case static_cast<int64_t>(StandardMetadataType::DATASPACE): {
-            // TODO: Implement dataspace setting
-            // auto& value = *static_cast<const StandardMetadata<StandardMetadataType::DATASPACE>::value_type*>(metadata);
-            // handle->dataspace = value;
-            _LOGW("Metadata type %s not yet implemented", metadataTypeName.c_str());
-            return AIMAPPER_ERROR_UNSUPPORTED;
-        }
-        
-        case static_cast<int64_t>(StandardMetadataType::SMPTE2086): {
-            // TODO: Implement SMPTE2086 setting
-            // auto& value = *static_cast<const StandardMetadata<StandardMetadataType::SMPTE2086>::value_type*>(metadata);
-            // handle->smpte2086 = value;
-            _LOGW("Metadata type %s not yet implemented", metadataTypeName.c_str());
-            return AIMAPPER_ERROR_UNSUPPORTED;
-        }
-        
         default:
-            _LOGI("Unknown metadata type %s (%ld)", metadataTypeName.c_str(), standardMetadataType);
+            _LOGI("Metadata type %s is not supported for set", metadataTypeName.c_str());
             return AIMAPPER_ERROR_UNSUPPORTED;
     }
 }

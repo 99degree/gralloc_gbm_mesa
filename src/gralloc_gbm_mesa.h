@@ -48,11 +48,11 @@ typedef struct gralloc_buffer_desc {
     uint32_t layer_count;  // Number of layout
 } gralloc_buffer_desc_t;
 
-struct bo_data_t {
+typedef struct bo_data {
 	void *map_data;
 	int lock_count;
 	int locked_for;
-};
+} bo_data_t;
 
 /*
  * gralloc_gbm_device_init()
