@@ -695,19 +695,31 @@ int gralloc_gm_buffer_free(buffer_handle_t handle) {
         return -errno;
     }
 
-    {
-        // std::lock_guard<std::mutex> lock(_gbm_bo_handle_map_mutex);
-        bo = gralloc_get_gbm_bo_from_handle(handle);
-        if (!bo) {
-            log_e("Failed to get BO from handle, err=%d", -errno);
-            return -errno;
-        }
-        gbm_bo_handle_map.erase(handle);
+    // std::lock_guard<std::mutex> lock(_gbm_bo_handle_map_mutex);
+    bo = gralloc_get_gbm_bo_from_handle(handle);
+    if (!bo) {
+        log_e("Failed to get BO from handle, err=%d", -errno);
+        return -errno;
     }
+    gbm_bo_handle_map.erase(handle);
+
+    auto it_bo = gbm_bo_handle_map.find(handle);
+    if (it_bo != gbm_bo_handle_map.end()) {
+        gbm_bo_handle_map.erase(it_bo);
+    }
+
     gbm_bo_destroy(bo);
 
     log_v("freed buffer: prime_fd=%d, width=%d, height=%d, hnd->stride=%d",
         hnd->prime_fd, hnd->width, hnd->height, hnd->stride);
 
     return 0;
+}
+
+__attribute__((destructor)) void _cleanup_all() {
+    _gbm_dev_fd = -1;
+    if (_gbm_dev) {
+        gbm_device_destroy(_gbm_dev);
+        _gbm_dev = nullptr;
+    }
 }

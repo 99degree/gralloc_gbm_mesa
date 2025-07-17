@@ -198,7 +198,13 @@ AIMapper_Error GbmMesaMapperV5::importBuffer(
 
 AIMapper_Error GbmMesaMapperV5::freeBuffer(buffer_handle_t _Nonnull buffer) {
     VALIDATE_DRIVER_AND_BUFFER_HANDLE(buffer)
+    gralloc_handle_t *hnd = gralloc_handle(buffer);
 
+    auto it_meta = gralloc_metadata_prime_fd_map.find(hnd->prime_fd);
+    if (it_meta != gralloc_metadata_prime_fd_map.end()) {
+        delete it_meta->second;
+        gralloc_metadata_prime_fd_map.erase(it_meta);
+    }
     int ret = gralloc_gm_buffer_free(buffer);
     if (ret) {
         return AIMAPPER_ERROR_BAD_BUFFER;
