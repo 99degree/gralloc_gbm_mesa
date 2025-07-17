@@ -12,25 +12,26 @@
 #include <android-base/logging.h>
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
-#include <log/log.h>
+
+#include "log.h"
 
 using aidl::android::hardware::graphics::allocator::impl::GbmMesaAllocator;
 
 int main(int /*argc*/, char** /*argv*/) {
-    _LOGI("GBM Mesa AIDL allocator starting up...");
+    log_i("GBM Mesa AIDL allocator starting up...");
 
     // same as SF main thread
     struct sched_param param = {0};
     param.sched_priority = 2;
     if (sched_setscheduler(0, SCHED_FIFO | SCHED_RESET_ON_FORK, &param) != 0) {
-        _LOGI("%s: failed to set priority: %s", __FUNCTION__, strerror(errno));
+        log_i("%s: failed to set priority: %s", __FUNCTION__, strerror(errno));
     }
 
     auto allocator = ndk::SharedRefBase::make<GbmMesaAllocator>();
     CHECK(allocator != nullptr);
 
     if (!allocator->init()) {
-        _LOGE("Failed to initialize GBM Mesa AIDL allocator.");
+        log_e("Failed to initialize GBM Mesa AIDL allocator.");
         return EXIT_FAILURE;
     }
 

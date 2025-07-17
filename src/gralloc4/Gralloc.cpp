@@ -16,9 +16,9 @@
 #include <string.h>
 
 #include <hardware/gralloc.h>
-#include <log/log.h>
 
 #include "../gralloc_gbm_mesa.h"
+#include "log.h"
 
 struct gralloc_gbm_module_t {
     gralloc_module_t base;
@@ -33,7 +33,7 @@ struct gralloc_gbm_alloc_device_t {
 };
 
 static int gralloc_mod_gbm_init(gralloc_gbm_module_t* mod) {
-    _LOGI("GBM Mesa Gralloc HAL Module initializing...");
+    log_i("GBM Mesa Gralloc HAL Module initializing...");
     pthread_mutex_lock(&mod->mutex);
     if (!mod->initialized) {
         int fd = gralloc_gbm_device_init();
@@ -79,14 +79,14 @@ static int gralloc_mod_gbm_perform(const struct gralloc_module_t* mod, int op, .
 }
 
 static int gralloc_mod_register_buffer(gralloc_module_t const* mod, buffer_handle_t handle) {
-    _LOGI("registerBuffer: handle=%p", handle);
+    log_i("registerBuffer: handle=%p", handle);
     gralloc_gbm_module_t* gbm_mod = (gralloc_gbm_module_t*)mod;
     int err = gralloc_mod_gbm_init(gbm_mod);
     if (err) return err;
 
     err = gralloc_gm_buffer_import(handle);
     if (err) {
-        _LOGE("gralloc_gm_buffer_import failed with %d", err);
+        log_e("gralloc_gm_buffer_import failed with %d", err);
     }
     return err;
 }

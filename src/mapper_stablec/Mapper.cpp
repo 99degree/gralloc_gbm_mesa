@@ -22,11 +22,11 @@
 #include <android/hardware/graphics/mapper/utils/IMapperProvider.h>
 #include <cutils/native_handle.h>
 #include <gralloctypes/Gralloc4.h>
-#include <log/log.h>
 #include <mutex>
 #include <unordered_map>
 
 #include "../gralloc_gbm_mesa.h"
+#include "log.h"
 
 using aidl::android::hardware::graphics::common::BlendMode;
 using aidl::android::hardware::graphics::common::Dataspace;
@@ -40,13 +40,13 @@ using android::base::unique_fd;
 
 #define REQUIRE_DRIVER()                                           \
     if (!mInitialized) {                                           \
-        _LOGE("Failed to %s. Driver is uninitialized.", __func__); \
+        log_e("Failed to %s. Driver is uninitialized.", __func__); \
         return AIMAPPER_ERROR_NO_RESOURCES;                        \
     }
 
 #define VALIDATE_BUFFER_HANDLE(bufferHandle)                    \
     if (!(bufferHandle)) {                                      \
-        _LOGE("Failed to %s. Null buffer_handle_t.", __func__); \
+        log_e("Failed to %s. Null buffer_handle_t.", __func__); \
         return AIMAPPER_ERROR_BAD_BUFFER;                       \
     }
 
@@ -71,7 +71,7 @@ static int createMetadata(gralloc_handle_t *handle, struct gralloc_metadata **ou
     auto it = gralloc_metadata_prime_fd_map.find(handle->prime_fd);
     gralloc_metadata_t *md = (it != gralloc_metadata_prime_fd_map.end()) ? it->second : nullptr;
     if (!md) {
-        _LOGD("Could not found metadata for handle (fd=%d), create new one.", handle->prime_fd);
+        log_d("Could not found metadata for handle (fd=%d), create new one.", handle->prime_fd);
         md = new gralloc_metadata {
             .prime_fd = handle->prime_fd,
             .blend_mode = BlendMode::NONE,
@@ -94,7 +94,7 @@ class GbmMesaMapperV5 final : public vendor::mapper::IMapperV5Impl {
         if (gralloc_gbm_device_init() > 0) {
             mInitialized = true;
         } else {
-            _LOGE("Failed to initialize GBM device (Mapper V5)");
+            log_e("Failed to initialize GBM device (Mapper V5)");
         }
     }
 
@@ -172,21 +172,21 @@ AIMapper_Error GbmMesaMapperV5::importBuffer(
     REQUIRE_DRIVER()
 
     if (!bufferHandle || bufferHandle->numFds == 0) {
-        _LOGE("Failed to importBuffer. Bad handle.");
+        log_e("Failed to importBuffer. Bad handle.");
         return AIMAPPER_ERROR_BAD_BUFFER;
     }
 
     native_handle_t* importedBufferHandle = native_handle_clone(bufferHandle);
     if (!importedBufferHandle) {
-        _LOGE("Failed to importBuffer. Handle clone failed: %s.", strerror(errno));
+        log_e("Failed to importBuffer. Handle clone failed: %s.", strerror(errno));
         return AIMAPPER_ERROR_NO_RESOURCES;
     }
 
     // Import buffer into GBM
-    _LOGI("Importing buffer to GBM...");
+    log_i("Importing buffer to GBM...");
     int ret = gralloc_gm_buffer_import(importedBufferHandle);
     if (ret) {
-        _LOGI("do gralloc_gm_buffer_import failed, ret=%d", ret);
+        log_i("do gralloc_gm_buffer_import failed, ret=%d", ret);
         native_handle_close(importedBufferHandle);
         native_handle_delete(importedBufferHandle);
         return AIMAPPER_ERROR_NO_RESOURCES;
@@ -225,7 +225,7 @@ AIMapper_Error GbmMesaMapperV5::lock(buffer_handle_t _Nonnull bufferHandle, uint
     VALIDATE_DRIVER_AND_BUFFER_HANDLE(bufferHandle)
     
     if (cpuUsage == 0) {
-        _LOGE("Failed to lock. Bad cpu usage: %" PRIu64 ".", cpuUsage);
+        log_e("Failed to lock. Bad cpu usage: %" PRIu64 ".", cpuUsage);
         return AIMAPPER_ERROR_BAD_VALUE;
     }
 
@@ -236,7 +236,7 @@ AIMapper_Error GbmMesaMapperV5::lock(buffer_handle_t _Nonnull bufferHandle, uint
                                  region.bottom - region.top, 
                                  outData);
     if (ret) {
-        _LOGE("Failed to lock buffer: %d", ret);
+        log_e("Failed to lock buffer: %d", ret);
         return AIMAPPER_ERROR_BAD_VALUE;
     }
 
@@ -248,7 +248,7 @@ AIMapper_Error GbmMesaMapperV5::unlock(buffer_handle_t _Nonnull buffer,
     VALIDATE_DRIVER_AND_BUFFER_HANDLE(buffer)
     int ret = gralloc_gbm_bo_unlock(buffer);
     if (ret) {
-        _LOGE("Failed to unlock buffer: %d", ret);
+        log_e("Failed to unlock buffer: %d", ret);
         return AIMAPPER_ERROR_BAD_BUFFER;
     }
     
@@ -257,13 +257,13 @@ AIMapper_Error GbmMesaMapperV5::unlock(buffer_handle_t _Nonnull buffer,
 }
 
 AIMapper_Error GbmMesaMapperV5::flushLockedBuffer(buffer_handle_t _Nonnull buffer) {
-    _LOGW("flushLockedBuffer() required, but not implemented");
+    log_w("flushLockedBuffer() required, but not implemented");
     // No-op for GBM Mesa
     return AIMAPPER_ERROR_NONE;
 }
 
 AIMapper_Error GbmMesaMapperV5::rereadLockedBuffer(buffer_handle_t _Nonnull buffer) {
-    _LOGW("rereadLockedBuffer() required, but not implemented");
+    log_w("rereadLockedBuffer() required, but not implemented");
     // No-op for GBM Mesa
     return AIMAPPER_ERROR_NONE;
 }
@@ -285,7 +285,7 @@ int32_t GbmMesaMapperV5::getStandardMetadata(buffer_handle_t _Nonnull bufferHand
 
     gralloc_handle_t* handle = gralloc_handle(bufferHandle);
     if (!handle) {
-        _LOGE("Failed to get gralloc handle");
+        log_e("Failed to get gralloc handle");
         return AIMAPPER_ERROR_BAD_BUFFER;
     }
 
@@ -431,33 +431,33 @@ AIMapper_Error GbmMesaMapperV5::setStandardMetadata(buffer_handle_t _Nonnull buf
 
     gralloc_handle_t* handle = gralloc_handle(buffer);
     if (!handle) {
-        _LOGE("Failed to get gralloc handle");
+        log_e("Failed to get gralloc handle");
         return AIMAPPER_ERROR_BAD_BUFFER;
     }
 
     gralloc_metadata_t* grallocMetadata = nullptr;
     if (createMetadata(handle, &grallocMetadata) != 0 || !grallocMetadata) {
-        _LOGE("Failed to create or retrieve metadata for buffer (fd=%d)", handle->prime_fd);
+        log_e("Failed to create or retrieve metadata for buffer (fd=%d)", handle->prime_fd);
         return AIMAPPER_ERROR_NO_RESOURCES;
     }
 
     StandardMetadataType metadataTypeEnum = static_cast<StandardMetadataType>(standardMetadataType);
     std::string metadataTypeName = toString(metadataTypeEnum);
-    _LOGV("Setting metadata type: %s (%ld), size: %zu", metadataTypeName.c_str(), standardMetadataType, metadataSize);
+    log_v("Setting metadata type: %s (%ld), size: %zu", metadataTypeName.c_str(), standardMetadataType, metadataSize);
 
     switch (metadataTypeEnum) {
         case StandardMetadataType::DATASPACE: {
             if (metadataSize != sizeof(Dataspace)) return AIMAPPER_ERROR_BAD_VALUE;
             const auto* value = static_cast<const Dataspace*>(metadata);
             grallocMetadata->dataspace = *value;
-            _LOGD("Set dataspace to %d for handle (fd = %d)", static_cast<int>(*value), handle->prime_fd);
+            log_d("Set dataspace to %d for handle (fd = %d)", static_cast<int>(*value), handle->prime_fd);
             return AIMAPPER_ERROR_NONE;
         }
         case StandardMetadataType::BLEND_MODE: {
             if (metadataSize != sizeof(BlendMode)) return AIMAPPER_ERROR_BAD_VALUE;
             const auto* value = static_cast<const BlendMode*>(metadata);
             grallocMetadata->blend_mode = *value;
-            _LOGD("Set blend_mode to %d for handle (fd = %d)", static_cast<int>(*value), handle->prime_fd);
+            log_d("Set blend_mode to %d for handle (fd = %d)", static_cast<int>(*value), handle->prime_fd);
             return AIMAPPER_ERROR_NONE;
         }
         case StandardMetadataType::SMPTE2086: {
@@ -481,11 +481,11 @@ AIMapper_Error GbmMesaMapperV5::setStandardMetadata(buffer_handle_t _Nonnull buf
         case StandardMetadataType::LAYER_COUNT:
         case StandardMetadataType::PIXEL_FORMAT_REQUESTED:
         case StandardMetadataType::USAGE:
-            _LOGW("Metadata type %s is read-only", metadataTypeName.c_str());
+            log_w("Metadata type %s is read-only", metadataTypeName.c_str());
             return AIMAPPER_ERROR_BAD_VALUE;
 
         default:
-            _LOGI("Metadata type %s is not supported for set", metadataTypeName.c_str());
+            log_i("Metadata type %s is not supported for set", metadataTypeName.c_str());
             return AIMAPPER_ERROR_UNSUPPORTED;
     }
 }
@@ -823,7 +823,7 @@ int getPlaneLayouts(uint32_t gbmFormat, std::vector<PlaneLayout>* outPlaneLayout
     const auto& planeLayoutsMap = GetPlaneLayoutsMap();
     const auto it = planeLayoutsMap.find(gbmFormat);
     if (it == planeLayoutsMap.end()) {
-        _LOGE("Unknown plane layout for format %d", gbmFormat);
+        log_e("Unknown plane layout for format %d", gbmFormat);
         return -EINVAL;
     }
 

@@ -27,6 +27,8 @@
 #include <hardware/gralloc.h>
 #include <sync/sync.h>
 
+#include "log.h"
+
 // We store the BO with a K,V map [buffer_handle_t, struct gbm_bo] named gbm_bo_handle_map.
 static std::unordered_map<buffer_handle_t, struct gbm_bo *> gbm_bo_handle_map;
 
@@ -45,17 +47,17 @@ int gralloc_gbm_device_init() {
 
     fd = open(device_path, O_RDWR | O_CLOEXEC); //TODO: Shall we add O_CLOEXEC?
     if (fd < 0) {
-        _LOGE("Failed to open device %s, err=%d", device_path, errno);
+        log_e("Failed to open device %s, err=%d", device_path, errno);
         return -EINVAL;
     }
-    _LOGV("opened device %s, fd=%d", device_path, fd);
+    log_v("opened device %s, fd=%d", device_path, fd);
 
     if (gralloc_gbm_device_create(fd, &dev)) {
-        _LOGE("Failed to initialize the gralloc_gm because cannot create GBM device!");
+        log_e("Failed to initialize the gralloc_gm because cannot create GBM device!");
         return -EINVAL;
     }
 
-    _LOGI("The GBM device has been initialized, fd=%d, dev_fd=%d", fd, _gbm_dev_fd);
+    log_i("The GBM device has been initialized, fd=%d, dev_fd=%d", fd, _gbm_dev_fd);
 
     // we shouldn't close the fd.
     return _gbm_dev_fd;
@@ -123,11 +125,11 @@ uint32_t gralloc_gm_android_format_to_gbm_format(uint32_t android_format)
         break;
     default:
         fmt = 0;
-        _LOGE("Unknown android format '%d', failed to convert!", android_format);
+        log_e("Unknown android format '%d', failed to convert!", android_format);
         break;
     }
 
-    _LOGV("convert android format '%d' to '%d'", android_format, fmt);
+    log_v("convert android format '%d' to '%d'", android_format, fmt);
     return fmt;
 }
 
@@ -221,11 +223,11 @@ int gralloc_gm_get_bpp_from_gbm_format(int gbm_format) {
     }
     
     if (bpp == 0) {
-        _LOGE("Unsupported or compressed GBM pixel format (%d)! "
+        log_e("Unsupported or compressed GBM pixel format (%d)! "
             "Return bpp=0, and this will cause the 'stride' to be zero.", gbm_format);
     }
     
-    _LOGV("set bpp to %d for format %d", bpp, gbm_format);
+    log_v("set bpp to %d for format %d", bpp, gbm_format);
 
     return bpp;
 }
@@ -248,7 +250,7 @@ uint32_t gralloc_gm_android_caculate_pixel_stride(uint32_t android_format, uint3
 
 int gralloc_gbm_device_create(int fd, struct gbm_device **dev) {
     if (!dev) {
-        _LOGE("Invalid pointer to receive GBM device!");
+        log_e("Invalid pointer to receive GBM device!");
         return -EINVAL;
     }
 
@@ -256,24 +258,24 @@ int gralloc_gbm_device_create(int fd, struct gbm_device **dev) {
 
     if ((_gbm_dev_fd > 0) && _gbm_dev) {
         *dev = _gbm_dev;
-        _LOGV("reusing existed GBM device.");
+        log_v("reusing existed GBM device.");
         return 0;
     }
 
     if (fd < 0) {
-        _LOGE("Invalid fd to create GBM device, fd=%d", fd);
+        log_e("Invalid fd to create GBM device, fd=%d", fd);
         return -EINVAL;
     }
 
     _gbm_dev = gbm_create_device(fd);
     if (!_gbm_dev) {
-        _LOGE("Failed to create GBM device, fd=%d", fd);
+        log_e("Failed to create GBM device, fd=%d", fd);
         _gbm_dev_fd = -1;
         return -EINVAL;
     }
 
     _gbm_dev_fd = gbm_device_get_fd(_gbm_dev);
-    _LOGI("Created the GBM device with backend '%s'.", gbm_device_get_backend_name(_gbm_dev));
+    log_i("Created the GBM device with backend '%s'.", gbm_device_get_backend_name(_gbm_dev));
 
     *dev = _gbm_dev;
     return 0;
@@ -304,30 +306,30 @@ int32_t gralloc_allocate(const struct gralloc_buffer_desc *desc, int32_t *out_st
     gralloc_handle_t *handle = nullptr;
 
     if (!gralloc_is_desc_support(desc)) {
-        _LOGE("Unsupported gralloc_buffer_desc, abort.");
+        log_e("Unsupported gralloc_buffer_desc, abort.");
         return -EINVAL;
     }
 
     ret = gralloc_gbm_device_create(_gbm_dev_fd, &dev);
     if (!dev) {
-        _LOGE("Invalid GBM device, abort.");
+        log_e("Invalid GBM device, abort.");
         return ret;
     }
 
     // TODO: Does Android using GBM format directly?
     _handle = gralloc_handle_create(desc->width, desc->height, desc->android_format, desc->android_usage);
     if (!_handle) {
-        _LOGE("Failed to create native handle, abort.");
+        log_e("Failed to create native handle, abort.");
         return -EINVAL;
     }
     buffer_handle_t buffer_handle = _handle;
     if (!buffer_handle) {
-        _LOGE("Failed to convert native_handle_t to buffer_handle_t, abort.");
+        log_e("Failed to convert native_handle_t to buffer_handle_t, abort.");
         return -EINVAL;
     }
     handle = gralloc_handle(buffer_handle);
     if (!handle) {
-        _LOGE("Failed to create gralloc_handle_t from buffer_handle_t, abort.");
+        log_e("Failed to create gralloc_handle_t from buffer_handle_t, abort.");
         return -EINVAL;
     }
 
@@ -351,12 +353,12 @@ int32_t gralloc_allocate(const struct gralloc_buffer_desc *desc, int32_t *out_st
         height += ALIGN(handle->height, 2) / 2;
     }
 
-    _LOGV("trying to create BO, size=%dx%d, fmt(gbm)=%d, usage=%x",
+    log_v("trying to create BO, size=%dx%d, fmt(gbm)=%d, usage=%x",
           handle->width, handle->height, format, flags);
     bo = gbm_bo_create(dev, width, height, format,
                flags);
     if (!bo) {
-        _LOGE("Failed to create BO, size=%dx%d, fmt=%d, usage=%x",
+        log_e("Failed to create BO, size=%dx%d, fmt=%d, usage=%x",
               handle->width, handle->height, handle->format, flags);
         native_handle_delete(_handle);
         return -errno;
@@ -376,7 +378,7 @@ int32_t gralloc_allocate(const struct gralloc_buffer_desc *desc, int32_t *out_st
     *out_stride = handle->stride;
     *out_handle = _handle;
 
-    _LOGV("allocated buffer: prime_fd=%d, width=%d, height=%d, handle->stride=%d, format=%d",
+    log_v("allocated buffer: prime_fd=%d, width=%d, height=%d, handle->stride=%d, format=%d",
         handle->prime_fd, handle->width, handle->height, handle->stride, format);
 
     // Don't call gbm_device_destroy(dev) in gralloc_allocate().
@@ -411,7 +413,7 @@ static int gralloc_gbm_map(buffer_handle_t handle, int enable_write, void **addr
 
     *addr = gbm_bo_map(bo, 0, 0, gbm_bo_get_width(bo), gbm_bo_get_height(bo),
                        flags, &stride, &bo_data->map_data);
-    _LOGV("mapped bo %p at %p", bo, *addr);
+    log_v("mapped bo %p at %p", bo, *addr);
     if (*addr == NULL)
         return -ENOMEM;
 
@@ -423,7 +425,7 @@ static int gralloc_gbm_map(buffer_handle_t handle, int enable_write, void **addr
 static void gralloc_gbm_unmap(struct gbm_bo *bo) {
     bo_data_t *bo_data = (bo_data_t *)gbm_bo_get_user_data(bo);
 
-    _LOGV("unmapped bo %p", bo);
+    log_v("unmapped bo %p", bo);
     gbm_bo_unmap(bo, bo_data->map_data);
     bo_data->map_data = NULL;
 }
@@ -445,7 +447,7 @@ int gralloc_gbm_bo_lock(buffer_handle_t handle,
         if (!(gbm_handle->usage & GRALLOC_USAGE_SW_READ_OFTEN) &&
                 !(gbm_handle->usage & GRALLOC_USAGE_HW_FB) &&
                 !(gbm_handle->usage & GRALLOC_USAGE_HW_TEXTURE)) {
-            _LOGE("bo.usage:x%X/usage:x%X is not GRALLOC_USAGE_HW_FB or GRALLOC_USAGE_HW_TEXTURE",
+            log_e("bo.usage:x%X/usage:x%X is not GRALLOC_USAGE_HW_FB or GRALLOC_USAGE_HW_TEXTURE",
                 gbm_handle->usage, usage);
             return -EINVAL;
         }
@@ -457,7 +459,7 @@ int gralloc_gbm_bo_lock(buffer_handle_t handle,
         gbm_bo_set_user_data(bo, bo_data, gralloc_gbm_destroy_user_data);
     }
 
-    _LOGV("lock bo %p, cnt=%d, usage=%x", bo, bo_data->lock_count, usage);
+    log_v("lock bo %p, cnt=%d, usage=%x", bo, bo_data->lock_count, usage);
 
     /* allow multiple locks with compatible usages */
     if (bo_data->lock_count && (bo_data->locked_for & usage) != usage)
@@ -495,7 +497,7 @@ int gralloc_gbm_bo_unlock(buffer_handle_t handle) {
         (GRALLOC_USAGE_SW_WRITE_MASK | GRALLOC_USAGE_SW_READ_MASK);
 
     if (!bo_data->lock_count) {
-        _LOGV("unlock on already unlocked BO");
+        log_v("unlock on already unlocked BO");
         return 0;
     }
 
@@ -517,7 +519,7 @@ int gralloc_gbm_bo_lock_ycbcr(buffer_handle_t handle,
     void *addr = 0;
     int err;
 
-    _LOGV("handle %p, hnd %p, usage 0x%x", handle, hnd, usage);
+    log_v("handle %p, hnd %p, usage 0x%x", handle, hnd, usage);
 
     err = gralloc_gbm_bo_lock(handle, usage, x, y, w, h, &addr);
     if (err)
@@ -546,7 +548,7 @@ int gralloc_gbm_bo_lock_ycbcr(buffer_handle_t handle,
         ycbcr->chroma_step = 1;
         break;
     default:
-        _LOGE("Can not lock buffer, invalid format: 0x%x", hnd->format);
+        log_e("Can not lock buffer, invalid format: 0x%x", hnd->format);
         return -EINVAL;
     }
 
@@ -580,7 +582,7 @@ int gralloc_gbm_bo_lock_async_ycbcr(buffer_handle_t handle, int usage, int x, in
     if (fence_fd >= 0) {
         int err = sync_wait(fence_fd, 3000); // timeout: 3s
         if (err < 0) {
-            _LOGE("sync_wait failed: %s", strerror(-err));
+            log_e("sync_wait failed: %s", strerror(-err));
             return err;
         }
         close(fence_fd);
@@ -599,32 +601,32 @@ int gralloc_gm_buffer_import(buffer_handle_t buffer_handle) {
 #endif
 
     if (!buffer_handle || !handle) {
-        _LOGE("Invalid buffer_handle_t or gralloc_handle_t.");
+        log_e("Invalid buffer_handle_t or gralloc_handle_t.");
         return -EINVAL;
     }
 
     {
         // std::lock_guard<std::mutex> lock(_gbm_bo_handle_map_mutex);
         if (gbm_bo_handle_map.count(buffer_handle)) {
-            _LOGE("Duplicated buffer was requested to be imported.");
+            log_e("Duplicated buffer was requested to be imported.");
             return -EINVAL;
         }
     }
 
     gralloc_gbm_device_create(_gbm_dev_fd, &dev);
     if (!dev) {
-        _LOGE("Invalid GBM device.");
+        log_e("Invalid GBM device.");
         return -EINVAL;
     }
 
     if (handle->prime_fd < 0) {
-        _LOGE("The input handle has an invalid prime_fd (%d)", handle->prime_fd);
+        log_e("The input handle has an invalid prime_fd (%d)", handle->prime_fd);
         return -EINVAL;
     }
 
     int format = gralloc_gm_android_format_to_gbm_format(handle->format);
     if (format == 0) {
-        _LOGE("Unsupported format: %d", handle->format);
+        log_e("Unsupported format: %d", handle->format);
         return -EINVAL;
     }
 
@@ -657,7 +659,7 @@ int gralloc_gm_buffer_import(buffer_handle_t buffer_handle) {
 #endif
 
     if (!bo) {
-        _LOGE("gbm_bo_import failed: %s (width=%d, height=%d, format=%d, stride=%d)",
+        log_e("gbm_bo_import failed: %s (width=%d, height=%d, format=%d, stride=%d)",
               strerror(errno), data.width, data.height, format, 
               #ifdef GBM_BO_IMPORT_FD_MODIFIER
               data.strides[0]
@@ -670,7 +672,7 @@ int gralloc_gm_buffer_import(buffer_handle_t buffer_handle) {
 
     gbm_bo_handle_map.emplace(buffer_handle, bo);
 
-    _LOGV("imported buffer: prime_fd=%d, width=%d, height=%d, handle->stride=%d, format=%d",
+    log_v("imported buffer: prime_fd=%d, width=%d, height=%d, handle->stride=%d, format=%d",
         handle->prime_fd, handle->width, handle->height, handle->stride, format);
 
     return 0;
@@ -682,12 +684,12 @@ int gralloc_gm_buffer_free(buffer_handle_t handle) {
     auto hnd = gralloc_handle(handle);
 
     if (!hnd) {
-        _LOGE("Failed to convert buffer_handle_t to gralloc_handle_t, err=%d", -errno);
+        log_e("Failed to convert buffer_handle_t to gralloc_handle_t, err=%d", -errno);
         return -errno;
     }
 
     if (!bo) {
-        _LOGE("Failed to get BO from handle, err=%d", -errno);
+        log_e("Failed to get BO from handle, err=%d", -errno);
         return -errno;
     }
 
@@ -695,14 +697,14 @@ int gralloc_gm_buffer_free(buffer_handle_t handle) {
         // std::lock_guard<std::mutex> lock(_gbm_bo_handle_map_mutex);
         bo = gralloc_get_gbm_bo_from_handle(handle);
         if (!bo) {
-            _LOGE("Failed to get BO from handle, err=%d", -errno);
+            log_e("Failed to get BO from handle, err=%d", -errno);
             return -errno;
         }
         gbm_bo_handle_map.erase(handle);
     }
     gbm_bo_destroy(bo);
 
-    _LOGV("freed buffer: prime_fd=%d, width=%d, height=%d, hnd->stride=%d",
+    log_v("freed buffer: prime_fd=%d, width=%d, height=%d, hnd->stride=%d",
         hnd->prime_fd, hnd->width, hnd->height, hnd->stride);
 
     return 0;

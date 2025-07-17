@@ -21,22 +21,6 @@
 #define IS_ALIGNED(A, B) (ALIGN((A), (B)) == (A))
 #define DIV_ROUND_UP(n, d) (((n) + (d)-1) / (d))
 
-#define _DEBUG
-
-#ifdef _DEBUG
-#define _LOGE(...) ALOGE(__VA_ARGS__)
-#define _LOGW(...) ALOGW(__VA_ARGS__)
-#define _LOGI(...) ALOGI(__VA_ARGS__)
-#define _LOGD(...) ALOGI(__VA_ARGS__)
-#define _LOGV(...) ALOGI(__VA_ARGS__)
-#else
-#define _LOGE(...) ALOGE(__VA_ARGS__)
-#define _LOGW(...) ALOGW(__VA_ARGS__)
-#define _LOGI(...) ALOGI(__VA_ARGS__)
-#define _LOGD(...) ALOGD(__VA_ARGS__)
-#define _LOGV(...) ALOGV(__VA_ARGS__)
-#endif
-
 typedef struct gralloc_buffer_desc {
     uint32_t width;
     uint32_t height;

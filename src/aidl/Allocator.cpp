@@ -12,7 +12,8 @@
 #include <android-base/logging.h>
 #include <android/binder_ibinder_platform.h>
 #include <gralloctypes/Gralloc4.h>
-#include <log/log.h>
+
+#include "log.h"
 
 using aidl::android::hardware::common::NativeHandle;
 using aidl::android::hardware::graphics::common::ExtendableType;
@@ -29,7 +30,7 @@ inline ndk::ScopedAStatus ToBinderStatus(AllocationError error) {
 
 ndk::ScopedAStatus convertToGBMDesc(const BufferDescriptorInfo& info, gralloc_buffer_desc* outResult) {
     if (info.width == 0 || info.height == 0) {
-        _LOGE("Invalid buffer descriptor: width or height is zero");
+        log_e("Invalid buffer descriptor: width or height is zero");
         return ToBinderStatus(AllocationError::BAD_DESCRIPTOR);
     }
 
@@ -37,7 +38,7 @@ ndk::ScopedAStatus convertToGBMDesc(const BufferDescriptorInfo& info, gralloc_bu
     outResult->height = static_cast<uint32_t>(info.height);
 
     if (info.layerCount > 1) {
-        _LOGE("Failed to convert descriptor. Unsupported layerCount: %d", info.layerCount);
+        log_e("Failed to convert descriptor. Unsupported layerCount: %d", info.layerCount);
         return ToBinderStatus(AllocationError::UNSUPPORTED);
     }
 
@@ -52,7 +53,7 @@ ndk::ScopedAStatus convertToGBMDesc(const BufferDescriptorInfo& info, gralloc_bu
 ndk::ScopedAStatus GbmMesaAllocator::gbmAllocateBuffer(const gralloc_buffer_desc& desc, int32_t* outStride,
                                              native_handle_t** outHandle) {
     if (!isInitialized()) {
-        _LOGE("gbmAllocateBuffer failed. Allocator is uninitialized.\n");
+        log_e("gbmAllocateBuffer failed. Allocator is uninitialized.\n");
         return ToBinderStatus(AllocationError::NO_RESOURCES);
     }
 
@@ -61,7 +62,7 @@ ndk::ScopedAStatus GbmMesaAllocator::gbmAllocateBuffer(const gralloc_buffer_desc
             static_cast<::android::hardware::graphics::common::V1_2::PixelFormat>(desc.android_format));
         const std::string usageString = ::android::hardware::graphics::common::V1_2::toString<::android::hardware::graphics::common::V1_2::BufferUsage>(
             static_cast<uint64_t>(desc.android_usage));
-        _LOGE("Failed to allocate. Unsupported combination: pixel format:%s, usage:%s\n",
+        log_e("Failed to allocate. Unsupported combination: pixel format:%s, usage:%s\n",
               pixelFormatString.c_str(), usageString.c_str());
         return ToBinderStatus(AllocationError::UNSUPPORTED);
     }
@@ -83,7 +84,7 @@ ndk::ScopedAStatus GbmMesaAllocator::gbmAllocateBuffer(const gralloc_buffer_desc
 ndk::ScopedAStatus GbmMesaAllocator::doAllocate(gralloc_buffer_desc& desc, int32_t count, 
     allocator::AllocationResult* outResult) {
     if (!isInitialized()) {
-        _LOGE("doAllocate failed. Allocator is uninitialized.\n");
+        log_e("doAllocate failed. Allocator is uninitialized.\n");
         return ToBinderStatus(AllocationError::NO_RESOURCES);
     }
 
@@ -136,7 +137,7 @@ bool GbmMesaAllocator::isInitialized() {
 ndk::ScopedAStatus GbmMesaAllocator::allocate(const std::vector<uint8_t>& encodedDescriptor, int32_t count,
                                        allocator::AllocationResult* outResult) {
     if (!isInitialized()) {
-        _LOGE("Failed to allocate. Allocator is uninitialized.\n");
+        log_e("Failed to allocate. Allocator is uninitialized.\n");
         return ToBinderStatus(AllocationError::NO_RESOURCES);
     }
 
@@ -144,7 +145,7 @@ ndk::ScopedAStatus GbmMesaAllocator::allocate(const std::vector<uint8_t>& encode
 
     int ret = ::android::gralloc4::decodeBufferDescriptorInfo(encodedDescriptor, &mapperV4Descriptor);
     if (ret) {
-        _LOGE("Failed to allocate. Failed to decode buffer descriptor: %d.\n", ret);
+        log_e("Failed to allocate. Failed to decode buffer descriptor: %d.\n", ret);
         return ToBinderStatus(AllocationError::BAD_DESCRIPTOR);
     }
 
@@ -161,7 +162,7 @@ ndk::ScopedAStatus GbmMesaAllocator::allocate(const std::vector<uint8_t>& encode
 
     ndk::ScopedAStatus status = convertToGBMDesc(info, &gbmDesc);
     if (!status.isOk()) {
-        _LOGE("Failed to convert the request buffer desc to gbm desc.\n");
+        log_e("Failed to convert the request buffer desc to gbm desc.\n");
         return ToBinderStatus(AllocationError::UNSUPPORTED);
     }
 
@@ -171,7 +172,7 @@ ndk::ScopedAStatus GbmMesaAllocator::allocate(const std::vector<uint8_t>& encode
 ndk::ScopedAStatus GbmMesaAllocator::allocate2(const BufferDescriptorInfo& descriptor, int32_t count,
                             allocator::AllocationResult* outResult) {
     if (!isInitialized()) {
-        _LOGE("Failed to allocate. Allocator is uninitialized.\n");
+        log_e("Failed to allocate. Allocator is uninitialized.\n");
         return ToBinderStatus(AllocationError::NO_RESOURCES);
     }
 
@@ -179,7 +180,7 @@ ndk::ScopedAStatus GbmMesaAllocator::allocate2(const BufferDescriptorInfo& descr
 
     ndk::ScopedAStatus status = convertToGBMDesc(descriptor, &gbmDesc);
     if (!status.isOk()) {
-        _LOGE("Failed to convert the request buffer desc to gbm desc.\n");
+        log_e("Failed to convert the request buffer desc to gbm desc.\n");
         return status;
     }
 
@@ -189,7 +190,7 @@ ndk::ScopedAStatus GbmMesaAllocator::allocate2(const BufferDescriptorInfo& descr
 ndk::ScopedAStatus GbmMesaAllocator::isSupported(const BufferDescriptorInfo& descriptor,
                             bool* outResult) {
     if (!isInitialized()) {
-        _LOGE("Failed to allocate. Allocator is uninitialized.\n");
+        log_e("Failed to allocate. Allocator is uninitialized.\n");
         return ToBinderStatus(AllocationError::NO_RESOURCES);
     }
 
