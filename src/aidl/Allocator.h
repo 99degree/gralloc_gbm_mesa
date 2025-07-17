@@ -13,7 +13,7 @@
 #include <android/hardware/graphics/mapper/4.0/IMapper.h>
 #include <android/hardware/graphics/common/1.2/types.h>
 
-#include "../gralloc_gbm_mesa.h"
+#include "gralloc_gbm_mesa.h"
 
 using aidl::android::hardware::common::NativeHandle;
 using aidl::android::hardware::graphics::common::PixelFormat;

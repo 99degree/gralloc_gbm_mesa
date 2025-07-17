@@ -17,7 +17,7 @@
 
 #include <hardware/gralloc.h>
 
-#include "../gralloc_gbm_mesa.h"
+#include "gralloc_gbm_mesa.h"
 #include "log.h"
 
 struct gralloc_gbm_module_t {

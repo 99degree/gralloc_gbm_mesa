@@ -25,7 +25,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "../gralloc_gbm_mesa.h"
+#include "gralloc_gbm_mesa.h"
 #include "log.h"
 
 using aidl::android::hardware::graphics::common::BlendMode;
