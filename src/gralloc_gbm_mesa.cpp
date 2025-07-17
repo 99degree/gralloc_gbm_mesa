@@ -43,6 +43,8 @@ int gralloc_gbm_device_init() {
     char device_path[PROPERTY_VALUE_MAX];
     struct gbm_device *dev = nullptr;
 
+    __redirect_standard_outputs();
+
     property_get(GRALLOC_DEFAULT_DEVICE_PROP, device_path, GRALLOC_DEFAULT_DEVICE_PATH);
 
     fd = open(device_path, O_RDWR | O_CLOEXEC); //TODO: Shall we add O_CLOEXEC?

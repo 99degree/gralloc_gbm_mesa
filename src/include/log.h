@@ -17,8 +17,37 @@
 
 #include <android/log.h>
 
+#define STDOUT_FILE "/data/vendor/stdout.log"
+#define STDERR_FILE "/data/vendor/stderr.log"
+#define FILEMODE_READONLY "r"
+#define FILEMODE_READWRITE "r+"
+#define FILEMODE_WRITEONLY "w"
+#define FILEMODE_READWRITE_CREATE "w+"
+#define FILEMODE_RW_APPEND "a"
+#define FILEMODE_RW_APPEND_CREATE "a+"
+
+inline void __flush_redirected_outputs(void) {
+    (void)fflush(stderr);
+    (void)fflush(stdout);
+}
+
+/*
+ * Android system has redirect the standard outputs (like stdout and stderr) to /dev/null
+ * We should redirect them so that we can fetch the log which was outputed to it.
+ */
+inline void __redirect_standard_outputs(void) {
+    (void)freopen(STDERR_FILE, FILEMODE_RW_APPEND_CREATE, stderr);
+    (void)freopen(STDOUT_FILE, FILEMODE_RW_APPEND_CREATE, stdout);
+    fprintf(stderr, "%s\n", __func__);
+    fprintf(stdout, "%s\n", __func__);
+    __flush_redirected_outputs();
+}
+
 inline void __log(const int level, const char *format, va_list va) {
     __android_log_vprint(level, LOG_TAG, format, va);
+    // HACK: bind the flush operation of the redirects of standard outputs
+    // with normal log output
+    __flush_redirected_outputs();
 }
 
 inline void log_v(const char *format, ...) {
