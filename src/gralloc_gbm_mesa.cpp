@@ -461,7 +461,7 @@ int gralloc_gbm_bo_lock(buffer_handle_t handle,
         gbm_bo_set_user_data(bo, bo_data, gralloc_gbm_destroy_user_data);
     }
 
-    log_v("lock bo %p, cnt=%d, usage=%x", bo, bo_data->lock_count, usage);
+    log_v("lock bo %p, cnt=%d, usage=%x, prime_fd=%d", bo, bo_data->lock_count, usage, gbm_handle->prime_fd);
 
     /* allow multiple locks with compatible usages */
     if (bo_data->lock_count && (bo_data->locked_for & usage) != usage)
@@ -674,8 +674,8 @@ int gralloc_gm_buffer_import(buffer_handle_t buffer_handle) {
 
     gbm_bo_handle_map.emplace(buffer_handle, bo);
 
-    log_v("imported buffer: prime_fd=%d, width=%d, height=%d, handle->stride=%d, format=%d",
-        handle->prime_fd, handle->width, handle->height, handle->stride, format);
+    log_v("imported buffer: bo %p, prime_fd=%d, width=%d, height=%d, handle->stride=%d, format=%d",
+        bo, handle->prime_fd, handle->width, handle->height, handle->stride, format);
 
     return 0;
 
