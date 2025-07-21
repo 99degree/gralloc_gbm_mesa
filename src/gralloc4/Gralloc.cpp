@@ -146,7 +146,7 @@ static int gralloc_mod_alloc_alloc(alloc_device_t* dev, int w, int h, int format
         .android_format = static_cast<uint32_t>(format),
         .android_usage = static_cast<uint32_t>(usage),
         .gbm_format = gralloc_gm_android_format_to_gbm_format(format),
-        .flags = gralloc_android_get_gbm_pipe_bind(usage)
+        .flags = gralloc_gm_get_gbm_flags_from_android_usage(usage, format)
     };
 
     native_handle_t* hnd = nullptr;

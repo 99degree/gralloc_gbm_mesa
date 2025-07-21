@@ -141,22 +141,41 @@ uint32_t gralloc_gm_android_format_to_gbm_format(uint32_t android_format)
     return fmt;
 }
 
-unsigned int gralloc_android_get_gbm_pipe_bind(int usage)
+unsigned int gralloc_gm_get_gbm_flags_from_android_usage(int usage, int android_format)
 {
-    unsigned int bind = 0;
+    unsigned int flags = 0;
+    uint32_t gbm_format = gralloc_gm_android_format_to_gbm_format(android_format);
 
     if (usage & (GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN))
-        bind |= GBM_BO_USE_LINEAR;
-    if (usage & GRALLOC_USAGE_CURSOR)
-        bind |= GBM_BO_USE_CURSOR; // FIXME: Can GBM_BO_USE_CURSOR be working?
+        flags |= GBM_BO_USE_LINEAR;
+    if (usage & GRALLOC_USAGE_CURSOR) {
+        switch (gbm_format) {
+            case GBM_FORMAT_ARGB8888:
+                flags |= GBM_BO_USE_CURSOR;
+                break;
+            default:
+                log_w("The GBM_BO_USE_CURSOR is required but using unsupported format (%d).", android_format);
+                break;
+        }
+    }
     if (usage & (GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_TEXTURE))
-        bind |= GBM_BO_USE_RENDERING;
+        flags |= GBM_BO_USE_RENDERING;
     if (usage & GRALLOC_USAGE_HW_FB)
-        bind |= GBM_BO_USE_SCANOUT;
+        flags |= GBM_BO_USE_SCANOUT;
     if (usage & GRALLOC_USAGE_HW_COMPOSER)
-        bind |= GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
+        flags |= GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
+    if (usage & GRALLOC_USAGE_HW_RENDER)
+        flags |= GBM_BO_USE_RENDERING;
+    if (usage & GRALLOC_USAGE_PROTECTED)
+        flags |= GBM_BO_USE_PROTECTED;
 
-    return bind;
+    if ((flags & GBM_BO_USE_SCANOUT) &&
+        !(gbm_format == GBM_FORMAT_XRGB8888 || gbm_format == GBM_FORMAT_XBGR8888)) {
+        log_w("We added GBM_BO_USE_SCANOUT but using unsupported format (%d).\n" \
+              "This may cause an issue if the flags has GBM_BO_USE_WRITE.", android_format);
+    }
+
+    return flags;
 }
 
 int gralloc_gm_get_bpp_from_gbm_format(int gbm_format) {
@@ -342,7 +361,7 @@ int32_t gralloc_allocate(const struct gralloc_buffer_desc *desc, int32_t *out_st
     }
 
     int format = gralloc_gm_android_format_to_gbm_format(handle->format);
-    int flags = gralloc_android_get_gbm_pipe_bind(handle->usage);
+    int flags = gralloc_gm_get_gbm_flags_from_android_usage(handle->usage, handle->format);
     int width, height;
 
     width = handle->width;

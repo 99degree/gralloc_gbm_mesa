@@ -47,7 +47,7 @@ typedef struct bo_data {
 int gralloc_gbm_device_init();
 
 uint32_t gralloc_gm_android_format_to_gbm_format(uint32_t android_format);
-unsigned int gralloc_android_get_gbm_pipe_bind(int usage);
+unsigned int gralloc_gm_get_gbm_flags_from_android_usage(int usage, int format);
 int gralloc_gm_get_bpp_from_gbm_format(int gbm_format);
 int gralloc_gm_get_bytes_per_pixel_from_gbm_format(int gbm_format);
 int gralloc_gm_get_bytes_per_pixel_from_android_format(int android_format);
