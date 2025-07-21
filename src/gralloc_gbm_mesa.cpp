@@ -65,22 +65,28 @@ int gralloc_gbm_device_init() {
     return _gbm_dev_fd;
 }
 
+// The GBM (DRI backend) supported formats can be found at gbm_dri_visuals_table[]
+// in <mesa_dir>/src/gbm/backends/dri/gbm_dri.c
+// The DRI supported formats can be found at dri2_format_table[]
+// in <mesa_dir>/src/gallium/frontends/dri/dri_helpers.c
 uint32_t gralloc_gm_android_format_to_gbm_format(uint32_t android_format)
 {
     uint32_t fmt;
 
+    /* The order of color format should be reversed 
+       while converting Android format to GBM format */
     switch (android_format) {
     case HAL_PIXEL_FORMAT_RGBA_8888:
-        fmt = GBM_FORMAT_ARGB8888; // not GBM_FORMAT_RGBA8888
+        fmt = GBM_FORMAT_ABGR8888; // not GBM_FORMAT_RGBA8888
         break;
     case HAL_PIXEL_FORMAT_RGBX_8888:
-        fmt = GBM_FORMAT_XRGB8888; // not GBM_FORMAT_RGBX8888
+        fmt = GBM_FORMAT_XBGR8888; // not GBM_FORMAT_RGBX8888
         break;
     case HAL_PIXEL_FORMAT_RGB_888:
         fmt = GBM_FORMAT_BGR888; // not GBM_FORMAT_RGB888
         break;
     case HAL_PIXEL_FORMAT_RGB_565:
-        fmt = GBM_FORMAT_RGB565;
+        fmt = GBM_FORMAT_BGR565; // not GBM_FORMAT_RGB565
         break;
     case HAL_PIXEL_FORMAT_BGRA_8888:
         fmt = GBM_FORMAT_ARGB8888; // not GBM_FORMAT_BGRA8888
