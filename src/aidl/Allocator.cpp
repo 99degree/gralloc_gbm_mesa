@@ -71,6 +71,7 @@ ndk::ScopedAStatus GbmMesaAllocator::gbmAllocateBuffer(const gralloc_buffer_desc
     int32_t stride = 0;
     int ret = gralloc_allocate(&desc, &stride, &handle);
     if (ret) {
+        log_e("Failed to allocate. Error code: %d\n", ret);
         return ToBinderStatus(AllocationError::NO_RESOURCES);
     }
 
@@ -97,6 +98,8 @@ ndk::ScopedAStatus GbmMesaAllocator::doAllocate(gralloc_buffer_desc& desc, int32
         if (!status.isOk()) {
             for (int32_t j = 0; j < i; j++) {
                 // Release all buffer and handle
+                if (!handles[j])
+                    continue;
                 gralloc_gm_buffer_free(handles[j]);
                 native_handle_close(handles[j]);
                 native_handle_delete(handles[j]);
@@ -107,6 +110,8 @@ ndk::ScopedAStatus GbmMesaAllocator::doAllocate(gralloc_buffer_desc& desc, int32
 
     outResult->buffers.resize(count);
     for (int32_t i = 0; i < count; i++) {
+        if (!handles[i])
+            continue;
         auto handle = handles[i];
         outResult->buffers[i] = ::android::dupToAidl(handle);
         // Release buffer and handle
