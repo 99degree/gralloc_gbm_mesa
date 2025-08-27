@@ -1,0 +1,20 @@
+option('drivers',
+  type: 'array',
+  choices: [
+    'amdgpu', 'i915', 'xe', 'meson', 'msm', 'vc4',
+    'mediatek', 'rockchip', 'virtgpu', 'radeon'
+  ],
+  description: 'List of GPU backends to build'
+)
+
+option('ndk_root',
+       type : 'string',
+       description : 'Path to Android NDK root')
+
+option('sdk_ver',
+       type : 'string',
+       description : 'Set SDK version')
+
+option('SDK_VER',
+       type : 'string',
+       description : 'Set SDK version')
