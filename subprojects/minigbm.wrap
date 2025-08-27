@@ -1,0 +1,7 @@
+[wrap-file]
+directory = minigbm-minigbm-aosp-20250326
+source_url = https://github.com/99degree/minigbm/archive/refs/heads/minigbm-aosp-20250326.zip
+source_filename = minigbm-aosp-20250326.zip
+source_hash =  cc9f0ec20ce6aa94c822259c1a7140598b48d97129eb16f46f86c7774aac0d30
+wrapdb_version = local_main_20250828
+depth = 1
